@@ -1,0 +1,14 @@
+{
+  "name": "bender-broccoli-compass",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.coffe",
+  "devDependencies": {
+    "coffee-script": "^1.9.0"
+  },
+  "dependencies": {
+    "broccoli-compass": "git+ssh://git@github.com/timmfin/broccoli-compass.git#move-funcs-to-prototype",
+    "glob-expand": "0.0.2",
+    "rsvp": "^3.0.16"
+  }
+}

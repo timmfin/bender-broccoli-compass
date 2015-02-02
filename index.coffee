@@ -1,0 +1,66 @@
+rsvp = require('rsvp')
+expand = require('glob-expand')
+CompassCompiler = require('broccoli-compass')
+
+
+class BenderCompassCompiler extends CompassCompiler
+  constructor: ->
+    unless this instanceof BenderCompassCompiler
+      return new BenderCompassCompiler arguments...
+
+    super arguments...
+
+  relevantFilesFromSource: (srcDir, options) ->
+    expand
+      cwd: srcDir
+      dot: true
+      filter: 'isFile'
+    , [
+      '**/*'
+
+      # Make sure that we copy across partials (for later dep tree cache invalidation checks)
+      '**/[^_]*.{scss,sass}'
+
+      # Exclude sass-cache (should this be pulled from options.exclude instead?)
+      '!.sass-cache/**'
+    ]
+
+  hasAnySassFiles: (srcDir) ->
+    # TODO, optimize to stop after finding the first file? (need to use something
+    # other than globbing)
+    sassFiles = expand
+      cwd: srcDir
+      dot: true
+      filter: 'isFile'
+    , [
+      '**/*.{scss,sass}'
+      '!.sass-cache/**'
+    ]
+
+    sassFiles.length > 0
+
+
+  # updateCache: (srcDir, destDir) ->
+  #   start = process.hrtime()
+
+  #   super(srcDir, destDir).finally () ->
+  #     diff = process.hrtime(start)
+  #     console.log("Took: ", diff[0] + (diff[1] / 1000000000))
+
+  updateCache: (srcDir, destDir) ->
+
+    # Only run the compass compile if there are any sass files available
+    if @hasAnySassFiles srcDir
+      super srcDir, destDir
+    else
+      # console.log "Skipping compass compile, #{srcDir} has no files"
+      destDir
+
+  # Override so that the source files are _not_ deleted.
+  cleanupSource: (srcDir, options) ->
+    return new rsvp.Promise (resolve) ->
+      resolve()
+
+
+
+module.exports = BenderCompassCompiler
