@@ -1,6 +1,9 @@
-rsvp = require('rsvp')
-expand = require('glob-expand')
+rsvp            = require('rsvp')
+path            = require('path')
+expand          = require('glob-expand')
+rimraf          = require('rimraf')
 CompassCompiler = require('broccoli-compass')
+
 
 
 class BenderCompassCompiler extends CompassCompiler
@@ -56,10 +59,11 @@ class BenderCompassCompiler extends CompassCompiler
       # console.log "Skipping compass compile, #{srcDir} has no files"
       destDir
 
-  # Override so that the source files are _not_ deleted.
+  # Override so that the source files are _not_ deleted (but still need to delete
+  # the `.sass-cache/` folder)
   cleanupSource: (srcDir, options) ->
     return new rsvp.Promise (resolve) ->
-      resolve()
+      rimraf path.join(srcDir, '.sass-cache'), resolve
 
 
 

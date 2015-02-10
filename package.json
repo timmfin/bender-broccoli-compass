@@ -9,6 +9,7 @@
   "dependencies": {
     "broccoli-compass": "git+ssh://git@github.com/timmfin/broccoli-compass.git#move-funcs-to-prototype",
     "glob-expand": "0.0.2",
+    "rimraf": "^2.2.8",
     "rsvp": "^3.0.16"
   }
 }
