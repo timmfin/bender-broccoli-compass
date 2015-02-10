@@ -56,8 +56,10 @@ class BenderCompassCompiler extends CompassCompiler
     if @hasAnySassFiles srcDir
       super srcDir, destDir
     else
-      # console.log "Skipping compass compile, #{srcDir} has no files"
-      destDir
+      # Still need to call copyRelevant to copy across partials (even if there
+      # are no real sass files to compile)
+      @copyRelevant(srcDir, destDir, @options).then ->
+        destDir
 
   # Override so that the source files are _not_ deleted (but still need to delete
   # the `.sass-cache/` folder)
