@@ -19,10 +19,12 @@ class BenderCompassCompiler extends CompassCompiler
       dot: true
       filter: 'isFile'
     , [
-      '**/*'
+      # Copy call the source and compiled output
+      '**/*.{scss,sass,css}'
 
-      # Make sure that we copy across partials (for later dep tree cache invalidation checks)
-      '**/[^_]*.{scss,sass}'
+      # Make sure that we copy across partials too (for later dep tree cache
+      # invalidation checks, plus others that need it)
+      '**/_*.{scss,sass}'
 
       # Exclude sass-cache (should this be pulled from options.exclude instead?)
       '!.sass-cache/**'
@@ -36,7 +38,9 @@ class BenderCompassCompiler extends CompassCompiler
       dot: true
       filter: 'isFile'
     , [
-      '**/*.{scss,sass}'
+      # Ignore partials when looking if a compile is necessary
+      '**/[^_]*.{scss,sass}'
+
       '!.sass-cache/**'
     ]
 
