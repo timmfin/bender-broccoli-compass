@@ -2,6 +2,8 @@ rsvp            = require('rsvp')
 path            = require('path')
 expand          = require('glob-expand')
 rimraf          = require('rimraf')
+dargs           = require('dargs')
+objectAssign    = require('object-assign')
 CompassCompiler = require('broccoli-compass')
 
 
@@ -55,6 +57,8 @@ class BenderCompassCompiler extends CompassCompiler
   #     console.log("Took: ", diff[0] + (diff[1] / 1000000000))
 
   updateCache: (srcDir, destDir) ->
+    # Needs to be run every rebuild now
+    @generateCmdLine()
 
     # Only run the compass compile if there are any sass files available
     if @hasAnySassFiles srcDir
@@ -64,6 +68,29 @@ class BenderCompassCompiler extends CompassCompiler
       # are no real sass files to compile)
       @copyRelevant(srcDir, destDir, @options).then ->
         destDir
+
+  # Have to copy this if we are customizing generateCmdLine
+  ignoredOptions: [
+    'compassCommand'
+    'ignoreErrors'
+    'exclude'
+    'files'
+    'filterFromCache'
+  ]
+
+  # Override generateCmdLine so that we can use a function to define command arguments
+  generateCmdLine: ->
+    cmd = [@options.compassCommand, 'compile']
+    cmdArgs = cmd.concat(@options.files)
+
+    # Make a clone and call any functions
+    optionsClone = objectAssign {}, @options
+
+    for key, value of optionsClone
+      if typeof value is 'function'
+        optionsClone[key] = value()
+
+    @cmdLine = cmdArgs.concat(dargs(optionsClone, { excludes: @ignoredOptions })).join(' ')
 
   # Override so that the source files are _not_ deleted (but still need to delete
   # the `.sass-cache/` folder)
