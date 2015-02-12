@@ -46,15 +46,10 @@ class BenderCompassCompiler extends CompassCompiler
       '!.sass-cache/**'
     ]
 
-    sassFiles.length > 0
+    # Save for later
+    @numSassFiles = sassFiles.length
 
-
-  # updateCache: (srcDir, destDir) ->
-  #   start = process.hrtime()
-
-  #   super(srcDir, destDir).finally () ->
-  #     diff = process.hrtime(start)
-  #     console.log("Took: ", diff[0] + (diff[1] / 1000000000))
+    @numSassFiles > 0
 
   updateCache: (srcDir, destDir) ->
     # Needs to be run every rebuild now
@@ -91,6 +86,17 @@ class BenderCompassCompiler extends CompassCompiler
         optionsClone[key] = value()
 
     @cmdLine = cmdArgs.concat(dargs(optionsClone, { excludes: @ignoredOptions })).join(' ')
+
+  # Add a log/timer to compile
+  compile: ->
+    start = process.hrtime()
+
+    execPromise = super
+    execPromise.then =>
+      delta = process.hrtime(start)
+      console.log "Compiled #{@numSassFiles} file#{if @numSassFiles is 1 then '' else 's'} via compass in #{Math.round(delta[0] * 1000 + delta[1] / 1000000)}ms"
+
+    execPromise
 
   # Override so that the source files are _not_ deleted (but still need to delete
   # the `.sass-cache/` folder)
