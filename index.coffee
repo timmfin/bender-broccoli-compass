@@ -9,6 +9,8 @@ CompassCompiler = require('broccoli-compass')
 
 
 class BenderCompassCompiler extends CompassCompiler
+  enforceSingleInputTree: true
+
   constructor: ->
     unless this instanceof BenderCompassCompiler
       return new BenderCompassCompiler arguments...
