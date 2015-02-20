@@ -1,19 +1,22 @@
-rsvp            = require('rsvp')
+RSVP            = require('rsvp')
 path            = require('path')
 expand          = require('glob-expand')
-rimraf          = require('rimraf')
+rimraf          = RSVP.denodeify(require('rimraf'))
 dargs           = require('dargs')
+helpers         = require('broccoli-kitchen-sink-helpers')
+mapSeries       = require('promise-map-series')
 objectAssign    = require('object-assign')
+symlinkOrCopy   = require('symlink-or-copy')
 CompassCompiler = require('broccoli-compass')
-
-
 
 class BenderCompassCompiler extends CompassCompiler
   enforceSingleInputTree: true
 
-  constructor: ->
+  constructor: (@options) ->
     unless this instanceof BenderCompassCompiler
       return new BenderCompassCompiler arguments...
+
+    { @dependencyCache } = @options
 
     super arguments...
 
@@ -34,10 +37,9 @@ class BenderCompassCompiler extends CompassCompiler
       '!.sass-cache/**'
     ]
 
-  hasAnySassFiles: (srcDir) ->
-    # TODO, optimize to stop after finding the first file? (need to use something
-    # other than globbing)
-    sassFiles = expand
+
+  lookupAllSassFiles: (srcDir) ->
+    @perBuildCache.allSassFiles ?= expand
       cwd: srcDir
       dot: true
       filter: 'isFile'
@@ -48,10 +50,11 @@ class BenderCompassCompiler extends CompassCompiler
       '!.sass-cache/**'
     ]
 
-    # Save for later
-    @numSassFiles = sassFiles.length
+  numSassFilesIn: (srcDir) ->
+    @perBuildCache.numSassFiles ?= @lookupAllSassFiles(srcDir).length
 
-    @numSassFiles > 0
+  hasAnySassFiles: (srcDir) ->
+    @numSassFilesIn(srcDir) > 0
 
   updateCache: (srcDir, destDir) ->
     # Needs to be run every rebuild now
@@ -66,6 +69,26 @@ class BenderCompassCompiler extends CompassCompiler
       @copyRelevant(srcDir, destDir, @options).then ->
         destDir
 
+  resolvedDependenciesForAllFiles: (relativePaths, options) ->
+    @dependencyCache.listOfAllResolvedDependencyPathsMulti(relativePaths, options) ? []
+
+  getHashForInput: (inputTreeDir) ->
+    keys = @keysForTree(inputTreeDir)
+    hashFromInputTree = helpers.hashStrings(keys)
+
+    loadPaths = [inputTreeDir].concat @passedLoadPaths()
+    allSassFiles = @lookupAllSassFiles(inputTreeDir)
+    resolvedDepsPlusSelf = @resolvedDependenciesForAllFiles(allSassFiles, { loadPaths }) ? allSassFiles
+
+    hashes = for resolvedPath in resolvedDepsPlusSelf
+      helpers.hashTree resolvedPath
+
+    "#{hashFromInputTree},#{helpers.hashStrings(hashes)}"
+
+  passedLoadPaths: ->
+    # options.loadPaths might be a function
+    @options.loadPaths?() ? @options.loadPaths ? []
+
   # Have to copy this if we are customizing generateCmdLine
   ignoredOptions: [
     'compassCommand'
@@ -73,6 +96,9 @@ class BenderCompassCompiler extends CompassCompiler
     'exclude'
     'files'
     'filterFromCache'
+
+    'dependencyCache'
+    'loadPaths'
   ]
 
   # Override generateCmdLine so that we can use a function to define command arguments
@@ -96,15 +122,58 @@ class BenderCompassCompiler extends CompassCompiler
     execPromise = super
     execPromise.then =>
       delta = process.hrtime(start)
-      console.log "Compiled #{@numSassFiles} file#{if @numSassFiles is 1 then '' else 's'} via compass in #{Math.round(delta[0] * 1000 + delta[1] / 1000000)}ms"
+      console.log "Compiled #{@perBuildCache.numSassFiles} file#{if @perBuildCache.numSassFiles is 1 then '' else 's'} via compass in #{Math.round(delta[0] * 1000 + delta[1] / 1000000)}ms"
 
     execPromise
 
   # Override so that the source files are _not_ deleted (but still need to delete
   # the `.sass-cache/` folder)
   cleanupSource: (srcDir, options) ->
-    return new rsvp.Promise (resolve) ->
+    return new RSVP.Promise (resolve) ->
       rimraf path.join(srcDir, '.sass-cache'), resolve
+
+
+  # Override the broccoli-caching-writers's implementation of read so we can customize
+  # the cache hash (sigh... maybe we really should just include all dependencies into
+  # one giant tree...)
+  read: (readTree) ->
+
+    # NEW ADDITION
+    # Broccoli gaurentees that this method will only be called once per build
+    @preBuildCleanup()
+
+    mapSeries(this.inputTrees, readTree).then (inputPaths) =>
+      inputTreeHashes = []
+      invalidateCache = false
+      keys = dir = updateCacheResult = undefined
+
+      for dir, i in inputPaths
+        # OLD
+        # keys = @keysForTree(dir)
+        # inputTreeHashes[i] = helpers.hashStrings(keys)
+
+        # CHANGE
+        inputTreeHashes[i] = @getHashForInput(dir)
+
+
+        invalidateCache = true if @_inputTreeCacheHash[i] isnt inputTreeHashes[i]
+
+      if invalidateCache
+        updateCacheSrcArg = if @enforceSingleInputTree then inputPaths[0] else inputPaths
+        updateCacheResult = @updateCache(updateCacheSrcArg, @getCleanCacheDir())
+
+        @_inputTreeCacheHash = inputTreeHashes
+
+      updateCacheResult
+    .then =>
+      rimraf @_destDir
+    .then =>
+      symlinkOrCopy.sync(@getCacheDir(), @_destDir)
+    .then =>
+      @_destDir
+
+  preBuildCleanup: ->
+    @perBuildCache = {}
 
 
 

@@ -8,10 +8,13 @@
   },
   "dependencies": {
     "broccoli-compass": "git+ssh://git@github.com/timmfin/broccoli-compass.git#move-funcs-to-prototype",
+    "broccoli-kitchen-sink-helpers": "^0.2.6",
     "dargs": "^4.0.0",
     "glob-expand": "0.0.2",
     "object-assign": "^2.0.0",
+    "promise-map-series": "^0.2.1",
     "rimraf": "^2.2.8",
-    "rsvp": "^3.0.16"
+    "rsvp": "^3.0.16",
+    "symlink-or-copy": "^1.0.1"
   }
 }
