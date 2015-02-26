@@ -19,6 +19,11 @@ class BenderCompassCompiler extends CachingWriter
     ignoreErrors: false,
     compassCommand: 'compass'
 
+  # Since CachingWriter copies options to the intstance, only send what it needs
+  optionKeysForCachingWriter: [
+    'filterFromCache'
+  ]
+
   constructor: (inputTree, options) ->
     unless this instanceof BenderCompassCompiler
       return new BenderCompassCompiler arguments...
@@ -26,9 +31,9 @@ class BenderCompassCompiler extends CachingWriter
     { @dependencyCache } = options
     @_lastKeys = []
 
-    super arguments...
+    super inputTree, pickKeysFrom(options, @optionKeysForCachingWriter)
 
-    # Fixup CachingWriter goofing with options (and set defaults)
+    # Fixup CachingWriter (CoreObject?) goofing with options (and set defaults)
     @options = objectAssign {}, @defaultOptions, options
 
   relevantFilesFromSource: (srcDir, options) ->
