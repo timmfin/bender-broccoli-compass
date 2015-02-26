@@ -1,5 +1,7 @@
+fse             = require('fs-extra')
 RSVP            = require('rsvp')
 path            = require('path')
+exec            = require('child_process').exec
 expand          = require('glob-expand')
 rimraf          = RSVP.denodeify(require('rimraf'))
 dargs           = require('dargs')
@@ -7,18 +9,27 @@ helpers         = require('broccoli-kitchen-sink-helpers')
 mapSeries       = require('promise-map-series')
 objectAssign    = require('object-assign')
 symlinkOrCopy   = require('symlink-or-copy')
-CompassCompiler = require('broccoli-compass')
+CachingWriter   = require('broccoli-caching-writer');
 
-class BenderCompassCompiler extends CompassCompiler
+
+class BenderCompassCompiler extends CachingWriter
   enforceSingleInputTree: true
 
-  constructor: (@options) ->
+  defaultOptions:
+    ignoreErrors: false,
+    compassCommand: 'compass'
+
+  constructor: (inputTree, options) ->
     unless this instanceof BenderCompassCompiler
       return new BenderCompassCompiler arguments...
 
-    { @dependencyCache } = @options
+    { @dependencyCache } = options
+    @_lastKeys = []
 
     super arguments...
+
+    # Fixup CachingWriter goofing with options (and set defaults)
+    @options = objectAssign {}, @defaultOptions, options
 
   relevantFilesFromSource: (srcDir, options) ->
     expand
@@ -33,7 +44,7 @@ class BenderCompassCompiler extends CompassCompiler
       # invalidation checks, plus others that need it)
       '**/_*.{scss,sass}'
 
-      # Exclude sass-cache (should this be pulled from options.exclude instead?)
+      # Exclude sass-cache
       '!.sass-cache/**'
     ]
 
@@ -57,17 +68,46 @@ class BenderCompassCompiler extends CompassCompiler
     @numSassFilesIn(srcDir) > 0
 
   updateCache: (srcDir, destDir) ->
-    # Needs to be run every rebuild now
-    @generateCmdLine()
 
     # Only run the compass compile if there are any sass files available
     if @hasAnySassFiles srcDir
-      super srcDir, destDir
+      @_actuallyUpdateCache srcDir, destDir
     else
       # Still need to call copyRelevant to copy across partials (even if there
       # are no real sass files to compile)
       @copyRelevant(srcDir, destDir, @options).then ->
         destDir
+
+  _actuallyUpdateCache: (srcDir, destDir) ->
+    console.log "srcDir", srcDir
+    @compile(@generateCmdLine(), { cwd: srcDir })
+      .then =>
+        @copyRelevant(srcDir, destDir, options)
+      .then =>
+        @cleanupSource(srcDir, options)
+      .then =>
+        destDir
+      , (err) =>
+        msg = err.message ? err
+
+        if options.ignoreErrors is false
+          throw err
+        else
+          console.error(msg)
+
+  copyRelevant: (srcDir, destDir, options) ->
+    results = @relevantFilesFromSource(srcDir, options)
+
+    copyPromises = for result in results
+      @copyDir(path.join(srcDir, result), path.join(destDir, result))
+
+    RSVP.all(copyPromises)
+
+  copyDir: (srcDir, destDir) ->
+    return new RSVP.Promise (resolve, reject) ->
+      fse.copy srcDir, destDir, (err) ->
+        return reject(err) if err
+        resolve()
 
   resolvedDependenciesForAllFiles: (relativePaths, options) ->
     @dependencyCache.listOfAllResolvedDependencyPathsMulti(relativePaths, options) ? []
@@ -86,37 +126,24 @@ class BenderCompassCompiler extends CompassCompiler
 
 
     originalKey.children = originalKey.children.concat(childKeys)
+    console.log "modifiedKey.children.length", originalKey.children.length
     originalKey
 
   passedLoadPaths: ->
     # options.loadPaths might be a function
     @options.loadPaths?() ? @options.loadPaths ? []
 
-  # Have to copy this if we are customizing generateCmdLine
-  ignoredOptions: [
-    'compassCommand'
-    'ignoreErrors'
-    'exclude'
-    'files'
-    'filterFromCache'
-
-    'dependencyCache'
-    'loadPaths'
-  ]
-
-  # Override generateCmdLine so that we can use a function to define command arguments
   generateCmdLine: ->
-    cmd = [@options.compassCommand, 'compile']
-    cmdArgs = cmd.concat(@options.files)
+    cmdArgs = [@options.compassCommand, 'compile']
 
     # Make a clone and call any functions
-    optionsClone = objectAssign {}, @options
+    optionsClone = objectAssign {}, @options.command
 
     for key, value of optionsClone
       if typeof value is 'function'
         optionsClone[key] = value()
 
-    @cmdLine = cmdArgs.concat(dargs(optionsClone, { excludes: @ignoredOptions })).join(' ')
+    cmdArgs.concat(dargs(optionsClone)).join(' ')
 
   # Add a log/timer to compile
   compile: ->
@@ -128,6 +155,24 @@ class BenderCompassCompiler extends CompassCompiler
       console.log "Compiled #{@perBuildCache.numSassFiles} file#{if @perBuildCache.numSassFiles is 1 then '' else 's'} via compass in #{Math.round(delta[0] * 1000 + delta[1] / 1000000)}ms"
 
     execPromise
+
+  compile: (cmdLine, options) ->
+    new RSVP.Promise (resolve, reject) =>
+      exec cmdLine, options, (err, stdout, stderr) =>
+        if not err
+          resolve()
+        else
+          # Provide a robust error message in case of failure.
+          # compass sends errors to sdtout, so it's important to include that
+          err.message = """
+            [broccoli-compass] failed while executing compass command line
+            [broccoli-compass] Working directory: #{options.cwd}
+            [broccoli-compass] Executed: #{cmdLine}
+            [broccoli-compass] stdout:\n#{stdout}
+            [broccoli-compass] stderr:\n#{stderr}
+          """
+
+          reject(err)
 
   # Override so that the source files are _not_ deleted (but still need to delete
   # the `.sass-cache/` folder)
