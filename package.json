@@ -7,11 +7,13 @@
     "coffee-script": "^1.9.0"
   },
   "dependencies": {
+    "Set": "^0.4.1",
     "broccoli-caching-writer": "^0.5.5",
     "broccoli-kitchen-sink-helpers": "^0.2.6",
     "dargs": "^4.0.0",
     "fs-extra": "^0.16.3",
     "glob-expand": "0.0.2",
+    "lodash": "^3.3.1",
     "object-assign": "^2.0.0",
     "promise-map-series": "^0.2.1",
     "rimraf": "^2.2.8",

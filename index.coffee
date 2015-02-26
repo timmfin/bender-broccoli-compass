@@ -1,4 +1,5 @@
 fse             = require('fs-extra')
+Set             = require('Set')
 RSVP            = require('rsvp')
 path            = require('path')
 exec            = require('child_process').exec
@@ -10,6 +11,8 @@ mapSeries       = require('promise-map-series')
 objectAssign    = require('object-assign')
 symlinkOrCopy   = require('symlink-or-copy')
 CachingWriter   = require('broccoli-caching-writer');
+
+{ pick: pickKeysFrom, zipObject, compact } = require('lodash')
 
 
 class BenderCompassCompiler extends CachingWriter
@@ -121,17 +124,14 @@ class BenderCompassCompiler extends CachingWriter
     originalKey = @keyForTree(inputTreeDir)
 
     loadPaths = [inputTreeDir].concat @passedLoadPaths()
-    allSassFiles = @lookupAllSassFiles(inputTreeDir)
-    resolvedDepsPlusSelf = @resolvedDependenciesForAllFiles(allSassFiles, { loadPaths }) ? allSassFiles
+    allSassFiles = new Set @lookupAllSassFiles(inputTreeDir)
+    resolvedDepsMinusSelf = @resolvedDependenciesForAllFiles(allSassFiles.toArray(), { loadPaths, ignoreSelf: true, relativePlusDirObject: true }) ? []
 
-    childKeys = for resolvedPath in resolvedDepsPlusSelf
-      childKey = @keyForTree resolvedPath, '/'
-      console.log "childKey for #{resolvedPath}", childKey
-      childKey
+    childKeys = for { resolvedDir, resolvedRelativePath } in resolvedDepsMinusSelf
+      resolvedPath = resolvedDir + '/' + resolvedRelativePath
+      childKey = @keyForTree resolvedPath, resolvedRelativePath unless allSassFiles.contains(resolvedRelativePath)
 
-
-    originalKey.children = originalKey.children.concat(childKeys)
-    console.log "modifiedKey.children.length", originalKey.children.length
+    originalKey.children = originalKey.children.concat(compact(childKeys))
     originalKey
 
   passedLoadPaths: ->
