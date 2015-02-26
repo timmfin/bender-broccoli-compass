@@ -73,17 +73,20 @@ class BenderCompassCompiler extends CompassCompiler
     @dependencyCache.listOfAllResolvedDependencyPathsMulti(relativePaths, options) ? []
 
   getHashForInput: (inputTreeDir) ->
-    keys = @keysForTree(inputTreeDir)
-    hashFromInputTree = helpers.hashStrings(keys)
+    originalKey = @keyForTree(inputTreeDir)
 
     loadPaths = [inputTreeDir].concat @passedLoadPaths()
     allSassFiles = @lookupAllSassFiles(inputTreeDir)
     resolvedDepsPlusSelf = @resolvedDependenciesForAllFiles(allSassFiles, { loadPaths }) ? allSassFiles
 
-    hashes = for resolvedPath in resolvedDepsPlusSelf
-      helpers.hashTree resolvedPath
+    childKeys = for resolvedPath in resolvedDepsPlusSelf
+      childKey = @keyForTree resolvedPath, '/'
+      console.log "childKey for #{resolvedPath}", childKey
+      childKey
 
-    "#{hashFromInputTree},#{helpers.hashStrings(hashes)}"
+
+    originalKey.children = originalKey.children.concat(childKeys)
+    originalKey
 
   passedLoadPaths: ->
     # options.loadPaths might be a function
@@ -143,26 +146,23 @@ class BenderCompassCompiler extends CompassCompiler
     @preBuildCleanup()
 
     mapSeries(this.inputTrees, readTree).then (inputPaths) =>
-      inputTreeHashes = []
       invalidateCache = false
       keys = dir = updateCacheResult = undefined
+      lastKeys = []
+
 
       for dir, i in inputPaths
-        # OLD
-        # keys = @keysForTree(dir)
-        # inputTreeHashes[i] = helpers.hashStrings(keys)
+        key = @getHashForInput(dir)
+        lastKey = @_lastKeys[i]
+        lastKeys.push(key)
 
-        # CHANGE
-        inputTreeHashes[i] = @getHashForInput(dir)
-
-
-        invalidateCache = true if @_inputTreeCacheHash[i] isnt inputTreeHashes[i]
+        invalidateCache = true unless key.equal(lastKey)
 
       if invalidateCache
         updateCacheSrcArg = if @enforceSingleInputTree then inputPaths[0] else inputPaths
         updateCacheResult = @updateCache(updateCacheSrcArg, @getCleanCacheDir())
 
-        @_inputTreeCacheHash = inputTreeHashes
+        @_lastKeys = lastKeys
 
       updateCacheResult
     .then =>
