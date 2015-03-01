@@ -34,7 +34,8 @@ class BenderCompassCompiler extends CachingWriter
     { @dependencyCache } = options
     @_lastKeys = []
 
-    super inputTree, pickKeysFrom(options, @optionKeysForCachingWriter)
+    # CoreObject (used inside CachingWriter) doesn't like being called via super
+    CachingWriter.call this, inputTree, pickKeysFrom(options, @optionKeysForCachingWriter)
 
     # Fixup CachingWriter (CoreObject?) goofing with options (and set defaults)
     @options = objectAssign {}, @defaultOptions, options
@@ -87,7 +88,6 @@ class BenderCompassCompiler extends CachingWriter
         destDir
 
   _actuallyUpdateCache: (srcDir, destDir) ->
-    console.log "srcDir", srcDir
     @compile(@generateCmdLine(), { cwd: srcDir })
       .then =>
         @copyRelevant(srcDir, destDir, options)
