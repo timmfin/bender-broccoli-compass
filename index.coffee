@@ -22,7 +22,7 @@ class BenderCompassCompiler extends CachingWriter
     ignoreErrors: false,
     compassCommand: 'compass'
 
-  # Since CachingWriter copies options to the intstance, only send what it needs
+  # Since CachingWriter copies options to the instance only send what it needs
   optionKeysForCachingWriter: [
     'filterFromCache'
   ]
@@ -120,20 +120,6 @@ class BenderCompassCompiler extends CachingWriter
   resolvedDependenciesForAllFiles: (relativePaths, options) ->
     @dependencyCache.listOfAllResolvedDependencyPathsMulti(relativePaths, options) ? []
 
-  getHashForInput: (inputTreeDir) ->
-    originalKey = @keyForTree(inputTreeDir)
-
-    loadPaths = [inputTreeDir].concat @passedLoadPaths()
-    allSassFiles = new Set @lookupAllSassFiles(inputTreeDir)
-    resolvedDepsMinusSelf = @resolvedDependenciesForAllFiles(allSassFiles.toArray(), { loadPaths, ignoreSelf: true, relativePlusDirObject: true }) ? []
-
-    childKeys = for { resolvedDir, resolvedRelativePath } in resolvedDepsMinusSelf
-      resolvedPath = resolvedDir + '/' + resolvedRelativePath
-      childKey = @keyForTree resolvedPath, resolvedRelativePath unless allSassFiles.contains(resolvedRelativePath)
-
-    originalKey.children = originalKey.children.concat(compact(childKeys))
-    originalKey
-
   passedLoadPaths: ->
     # options.loadPaths might be a function
     @options.loadPaths?() ? @options.loadPaths ? []
@@ -186,41 +172,15 @@ class BenderCompassCompiler extends CachingWriter
       rimraf path.join(srcDir, '.sass-cache'), resolve
 
 
-  # Override the broccoli-caching-writers's implementation of read so we can customize
-  # the cache hash (sigh... maybe we really should just include all dependencies into
-  # one giant tree...)
+  # Override the broccoli-caching-writers's implementation of read so we can add
+  # some per build cleanup (can go else where?)
   read: (readTree) ->
 
     # NEW ADDITION
     # Broccoli gaurentees that this method will only be called once per build
     @preBuildCleanup()
 
-    mapSeries(this.inputTrees, readTree).then (inputPaths) =>
-      invalidateCache = false
-      keys = dir = updateCacheResult = undefined
-      lastKeys = []
-
-
-      for dir, i in inputPaths
-        key = @getHashForInput(dir)
-        lastKey = @_lastKeys[i]
-        lastKeys.push(key)
-
-        invalidateCache = true unless key.equal(lastKey)
-
-      if invalidateCache
-        updateCacheSrcArg = if @enforceSingleInputTree then inputPaths[0] else inputPaths
-        updateCacheResult = @updateCache(updateCacheSrcArg, @getCleanCacheDir())
-
-        @_lastKeys = lastKeys
-
-      updateCacheResult
-    .then =>
-      rimraf @_destDir
-    .then =>
-      symlinkOrCopy.sync(@getCacheDir(), @_destDir)
-    .then =>
-      @_destDir
+    super(readTree)
 
   preBuildCleanup: ->
     @perBuildCache = {}
