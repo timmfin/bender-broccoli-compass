@@ -104,7 +104,6 @@ class BenderCompassCompiler extends CachingWriter
 
     # Only run the compass compile if there are any sass files available
     if @hasAnySassFiles srcDir
-      console.log "@perBuildCache.allSassFiles", @perBuildCache.allSassFiles
       @_actuallyUpdateCache srcDir, destDir
     else
       # Still need to call copyRelevant to copy across partials (even if there
