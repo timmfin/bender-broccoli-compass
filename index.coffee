@@ -12,7 +12,7 @@ objectAssign    = require('object-assign')
 symlinkOrCopy   = require('symlink-or-copy')
 CachingWriter   = require('broccoli-caching-writer');
 
-{ pick: pickKeysFrom, zipObject, compact } = require('lodash')
+{ pick: pickKeysFrom, zipObject, compact, flatten } = require('lodash')
 
 
 class BenderCompassCompiler extends CachingWriter
@@ -21,6 +21,10 @@ class BenderCompassCompiler extends CachingWriter
   defaultOptions:
     ignoreErrors: false,
     compassCommand: 'compass'
+
+  defaultCommandOptions:
+    sassDir: '.'
+    cssDir: '.'
 
   # Since CachingWriter copies options to the instance only send what it needs
   optionKeysForCachingWriter: [
@@ -40,22 +44,25 @@ class BenderCompassCompiler extends CachingWriter
     # Fixup CachingWriter (CoreObject?) goofing with options (and set defaults)
     @options = objectAssign {}, @defaultOptions, options
 
+    # TODO verify array if exists
+    @options.restrictedDirPatterns ?= []
+
   relevantFilesFromSource: (srcDir, options) ->
+    patterns = @_buildIncludePatterns @options.restrictedDirPatterns, [
+      # Copy call the source and compiled output (including '_' partials too)
+      '**/*.{scss,sass,css}'
+    ]
+
     expand
       cwd: srcDir
       dot: true
       filter: 'isFile'
-    , [
-      # Copy call the source and compiled output
-      '**/*.{scss,sass,css}'
 
-      # Make sure that we copy across partials too (for later dep tree cache
-      # invalidation checks, plus others that need it)
-      '**/_*.{scss,sass}'
-
-      # Exclude sass-cache
-      '!.sass-cache/**'
-    ]
+      # Much faster that `!` negation
+      ignore: [
+        '.sass-cache/**'
+      ]
+    , patterns
 
 
   lookupAllSassFiles: (srcDir) ->
@@ -63,12 +70,29 @@ class BenderCompassCompiler extends CachingWriter
       cwd: srcDir
       dot: true
       filter: 'isFile'
-    , [
+
+      # Much faster that `!` negation
+      ignore: [
+        '.sass-cache/**'
+      ]
+    , @_buildIncludePatterns @options.restrictedDirPatterns, [
       # Ignore partials when looking if a compile is necessary
       '**/[^_]*.{scss,sass}'
-
-      '!.sass-cache/**'
     ]
+
+  # For now assumes it is ok to concatenate the dir and include patterns (because
+  # you can only restrict directories)
+  _buildIncludePatterns: (restrictedDirPatterns, includePatterns) ->
+
+    # Empty "pattern" if there are not restrictions
+    restrictedDirPatterns = [''] if restrictedDirPatterns.length is 0
+
+    patterns = for restrictedDirPattern in restrictedDirPatterns
+      for includePattern in includePatterns
+        "#{restrictedDirPattern}#{includePattern}"
+
+    flatten(patterns)
+
 
   numSassFilesIn: (srcDir) ->
     @perBuildCache.numSassFiles ?= @lookupAllSassFiles(srcDir).length
@@ -80,6 +104,7 @@ class BenderCompassCompiler extends CachingWriter
 
     # Only run the compass compile if there are any sass files available
     if @hasAnySassFiles srcDir
+      console.log "@perBuildCache.allSassFiles", @perBuildCache.allSassFiles
       @_actuallyUpdateCache srcDir, destDir
     else
       # Still need to call copyRelevant to copy across partials (even if there
@@ -128,13 +153,13 @@ class BenderCompassCompiler extends CachingWriter
     cmdArgs = [@options.compassCommand, 'compile']
 
     # Make a clone and call any functions
-    optionsClone = objectAssign {}, @options.command
+    optionsClone = objectAssign {}, @defaultCommandOptions, @options.command
 
     for key, value of optionsClone
       if typeof value is 'function'
         optionsClone[key] = value()
 
-    cmdArgs.concat(dargs(optionsClone)).join(' ')
+    cmdArgs.concat(dargs(optionsClone)).concat(@lookupAllSassFiles()).join(' ')
 
   # Add a log/timer to compile
   compile: ->
