@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "Set": "^0.4.1",
-    "broccoli-caching-writer": "^0.5.5",
+    "broccoli-caching-writer": "git+ssh://git@github.com/ember-cli/broccoli-caching-writer.git#6c72664f45969e5672ca0f9ae81708018d46fa63",
     "broccoli-kitchen-sink-helpers": "^0.2.6",
     "dargs": "^4.0.0",
     "fs-extra": "^0.16.3",

@@ -16,8 +16,6 @@ CachingWriter   = require('broccoli-caching-writer');
 
 
 class BenderCompassCompiler extends CachingWriter
-  enforceSingleInputTree: true
-
   defaultOptions:
     ignoreErrors: false,
     compassCommand: 'compass'
@@ -39,7 +37,7 @@ class BenderCompassCompiler extends CachingWriter
     @_lastKeys = []
 
     # CoreObject (used inside CachingWriter) doesn't like being called via super
-    CachingWriter.call this, inputTree, pickKeysFrom(options, @optionKeysForCachingWriter)
+    CachingWriter.call this, [inputTree], pickKeysFrom(options, @optionKeysForCachingWriter)
 
     # Fixup CachingWriter (CoreObject?) goofing with options (and set defaults)
     @options = objectAssign {}, @defaultOptions, options
@@ -101,6 +99,8 @@ class BenderCompassCompiler extends CachingWriter
     @numSassFilesIn(srcDir) > 0
 
   updateCache: (srcDir, destDir) ->
+  updateCache: (srcDirs, destDir) ->
+    srcDir = srcDirs[0]
 
     # Only run the compass compile if there are any sass files available
     if @hasAnySassFiles srcDir
@@ -201,7 +201,7 @@ class BenderCompassCompiler extends CachingWriter
     # Broccoli gaurentees that this method will only be called once per build
     @preBuildCleanup()
 
-    super(readTree)
+    CachingWriter.prototype.read.call(this, readTree)
 
   preBuildCleanup: ->
     @perBuildCache = {}
