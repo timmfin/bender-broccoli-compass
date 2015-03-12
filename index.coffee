@@ -141,9 +141,6 @@ class BenderCompassCompiler extends CachingWriter
         return reject(err) if err
         resolve()
 
-  resolvedDependenciesForAllFiles: (relativePaths, options) ->
-    @dependencyCache.listOfAllResolvedDependencyPathsMulti(relativePaths, options) ? []
-
   passedLoadPaths: ->
     # options.loadPaths might be a function
     @options.loadPaths?() ? @options.loadPaths ? []
