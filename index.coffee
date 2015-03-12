@@ -42,8 +42,10 @@ class BenderCompassCompiler extends CachingWriter
     # Fixup CachingWriter (CoreObject?) goofing with options (and set defaults)
     @options = objectAssign {}, @defaultOptions, options
 
-    # TODO verify array if exists
+    # For now, can only be something like `Bla/` or `Bla/**` (eg. it can't filter for
+    # the actual file or extension, only the beginning of the path)
     @options.restrictedDirPatterns ?= []
+    throw new Error "restrictedDirPatterns needs to be an array" unless @options.restrictedDirPatterns?.length
 
   relevantFilesFromSource: (srcDir, options) ->
     patterns = @_buildIncludePatterns @options.restrictedDirPatterns, [
@@ -78,6 +80,7 @@ class BenderCompassCompiler extends CachingWriter
       '**/[^_]*.{scss,sass}'
     ]
 
+
   # For now assumes it is ok to concatenate the dir and include patterns (because
   # you can only restrict directories)
   _buildIncludePatterns: (restrictedDirPatterns, includePatterns) ->
@@ -87,7 +90,7 @@ class BenderCompassCompiler extends CachingWriter
 
     patterns = for restrictedDirPattern in restrictedDirPatterns
       for includePattern in includePatterns
-        "#{restrictedDirPattern}#{includePattern}"
+        "#{restrictedDirPattern}#{includePattern}".replace('****', '**')  # to merge '/**' and '**/'
 
     flatten(patterns)
 
@@ -98,7 +101,6 @@ class BenderCompassCompiler extends CachingWriter
   hasAnySassFiles: (srcDir) ->
     @numSassFilesIn(srcDir) > 0
 
-  updateCache: (srcDir, destDir) ->
   updateCache: (srcDirs, destDir) ->
     srcDir = srcDirs[0]
 
@@ -112,7 +114,7 @@ class BenderCompassCompiler extends CachingWriter
         destDir
 
   _actuallyUpdateCache: (srcDir, destDir) ->
-    @compile(@generateCmdLine(), { cwd: srcDir })
+    @compile(@generateCmdLine(srcDir), { cwd: srcDir })
       .then =>
         @copyRelevant(srcDir, destDir, options)
       .then =>
@@ -145,7 +147,7 @@ class BenderCompassCompiler extends CachingWriter
     # options.loadPaths might be a function
     @options.loadPaths?() ? @options.loadPaths ? []
 
-  generateCmdLine: ->
+  generateCmdLine: (srcDir) ->
     cmdArgs = [@options.compassCommand, 'compile']
 
     # Make a clone and call any functions
@@ -155,21 +157,22 @@ class BenderCompassCompiler extends CachingWriter
       if typeof value is 'function'
         optionsClone[key] = value()
 
-    cmdArgs.concat(dargs(optionsClone)).concat(@lookupAllSassFiles()).join(' ')
+    cmdArgs.concat(dargs(optionsClone)).concat(@lookupAllSassFiles(srcDir)).join(' ')
 
   # Add a log/timer to compile
-  compile: ->
+  compile: (cmdLine, options) ->
     start = process.hrtime()
 
-    execPromise = super
+    execPromise = @_actualCompile(cmdLine, options)
     execPromise.then =>
       delta = process.hrtime(start)
       console.log "Compiled #{@perBuildCache.numSassFiles} file#{if @perBuildCache.numSassFiles is 1 then '' else 's'} via compass in #{Math.round(delta[0] * 1000 + delta[1] / 1000000)}ms"
 
     execPromise
 
-  compile: (cmdLine, options) ->
+  _actualCompile: (cmdLine, options) ->
     new RSVP.Promise (resolve, reject) =>
+      console.log "compass command:\n", cmdLine, "\n\n"
       exec cmdLine, options, (err, stdout, stderr) =>
         if not err
           resolve()
