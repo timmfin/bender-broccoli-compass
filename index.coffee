@@ -36,8 +36,8 @@ class BenderCompassCompiler extends CachingWriter
     { @dependencyCache } = options
     @_lastKeys = []
 
-    # CoreObject (used inside CachingWriter) doesn't like being called via super
-    CachingWriter.call this, [inputTree], pickKeysFrom(options, @optionKeysForCachingWriter)
+    # CoreObject (used inside CachingWriter) doesn't like being called directly
+    CachingWriter.prototype.init.call this, [inputTree], pickKeysFrom(options, @optionKeysForCachingWriter)
 
     # Fixup CachingWriter (CoreObject?) goofing with options (and set defaults)
     @options = objectAssign {}, @defaultOptions, options
