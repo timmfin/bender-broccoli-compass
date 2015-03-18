@@ -110,6 +110,7 @@ class BenderCompassCompiler extends CachingWriter
     else
       # Still need to call copyRelevant to copy across partials (even if there
       # are no real sass files to compile)
+      console.log ""
       @copyRelevant(srcDir, destDir, @options).then ->
         destDir
 
@@ -172,7 +173,7 @@ class BenderCompassCompiler extends CachingWriter
 
   _actualCompile: (cmdLine, options) ->
     new RSVP.Promise (resolve, reject) =>
-      console.log "compass command:\n", cmdLine, "\n\n"
+      # console.log "compass command:\n", cmdLine, "\n\n"
       exec cmdLine, options, (err, stdout, stderr) =>
         if not err
           resolve()
@@ -189,8 +190,7 @@ class BenderCompassCompiler extends CachingWriter
 
           reject(err)
 
-  # Override so that the source files are _not_ deleted (but still need to delete
-  # the `.sass-cache/` folder)
+  # Don't delete the source SASS files, but _do_ delete the `.sass-cache/` folder)
   cleanupSource: (srcDir, options) ->
     return new RSVP.Promise (resolve) ->
       rimraf path.join(srcDir, '.sass-cache'), resolve
