@@ -1,16 +1,17 @@
-fse             = require('fs-extra')
-Set             = require('Set')
-RSVP            = require('rsvp')
-path            = require('path')
-exec            = require('child_process').exec
-expand          = require('glob-expand')
-rimraf          = RSVP.denodeify(require('rimraf'))
-dargs           = require('dargs')
-helpers         = require('broccoli-kitchen-sink-helpers')
-mapSeries       = require('promise-map-series')
-objectAssign    = require('object-assign')
-symlinkOrCopy   = require('symlink-or-copy')
-CachingWriter   = require('broccoli-caching-writer');
+fse               = require('fs-extra')
+Set               = require('Set')
+RSVP              = require('rsvp')
+path              = require('path')
+exec              = require('child_process').exec
+dargs             = require('dargs')
+expand            = require('glob-expand')
+rimraf            = RSVP.denodeify(require('rimraf'))
+mkdirp            = require('mkdirp')
+helpers           = require('broccoli-kitchen-sink-helpers')
+mapSeries         = require('promise-map-series')
+objectAssign      = require('object-assign')
+CachingWriter     = require('broccoli-caching-writer');
+symlinkOrCopySync = require('symlink-or-copy').sync
 
 { pick: pickKeysFrom, zipObject, compact, flatten } = require('lodash')
 
@@ -22,7 +23,6 @@ class BenderCompassCompiler extends CachingWriter
 
   defaultCommandOptions:
     sassDir: '.'
-    cssDir: '.'
 
   # Since CachingWriter copies options to the instance only send what it needs
   optionKeysForCachingWriter: [
@@ -46,24 +46,6 @@ class BenderCompassCompiler extends CachingWriter
     # the actual file or extension, only the beginning of the path)
     @options.restrictedDirPatterns ?= []
     throw new Error "restrictedDirPatterns needs to be an array" unless @options.restrictedDirPatterns?.length
-
-  relevantFilesFromSource: (srcDir, options) ->
-    patterns = @_buildIncludePatterns @options.restrictedDirPatterns, [
-      # Copy call the source and compiled output (including '_' partials too)
-      '**/*.{scss,sass,css}'
-    ]
-
-    expand
-      cwd: srcDir
-      dot: true
-      filter: 'isFile'
-
-      # Much faster that `!` negation
-      ignore: [
-        '.sass-cache/**'
-      ]
-    , patterns
-
 
   lookupAllSassFiles: (srcDir) ->
     @perBuildCache.allSassFiles ?= expand
@@ -108,16 +90,10 @@ class BenderCompassCompiler extends CachingWriter
     if @hasAnySassFiles srcDir
       @_actuallyUpdateCache srcDir, destDir
     else
-      # Still need to call copyRelevant to copy across partials (even if there
-      # are no real sass files to compile)
-      console.log ""
-      @copyRelevant(srcDir, destDir, @options).then ->
-        destDir
+      destDir
 
   _actuallyUpdateCache: (srcDir, destDir) ->
-    @compile(@generateCmdLine(srcDir), { cwd: srcDir })
-      .then =>
-        @copyRelevant(srcDir, destDir, options)
+    @compile(@generateCmdLine(srcDir, destDir), { cwd: srcDir })
       .then =>
         @cleanupSource(srcDir, options)
       .then =>
@@ -130,29 +106,16 @@ class BenderCompassCompiler extends CachingWriter
         else
           console.error(msg)
 
-  copyRelevant: (srcDir, destDir, options) ->
-    results = @relevantFilesFromSource(srcDir, options)
-
-    copyPromises = for result in results
-      @copyDir(path.join(srcDir, result), path.join(destDir, result))
-
-    RSVP.all(copyPromises)
-
-  copyDir: (srcDir, destDir) ->
-    return new RSVP.Promise (resolve, reject) ->
-      fse.copy srcDir, destDir, (err) ->
-        return reject(err) if err
-        resolve()
-
   passedLoadPaths: ->
     # options.loadPaths might be a function
     @options.loadPaths?() ? @options.loadPaths ? []
 
-  generateCmdLine: (srcDir) ->
+  generateCmdLine: (srcDir, destDir) ->
     cmdArgs = [@options.compassCommand, 'compile']
 
     # Make a clone and call any functions
-    optionsClone = objectAssign {}, @defaultCommandOptions, @options.command
+    optionsClone = objectAssign {}, @defaultCommandOptions, @options.command,
+      cssDir: destDir
 
     for key, value of optionsClone
       if typeof value is 'function'
