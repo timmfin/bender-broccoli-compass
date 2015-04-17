@@ -6,7 +6,6 @@ exec              = require('child_process').exec
 dargs             = require('dargs')
 expand            = require('glob-expand')
 rimraf            = RSVP.denodeify(require('rimraf'))
-mkdirp            = require('mkdirp')
 helpers           = require('broccoli-kitchen-sink-helpers')
 mapSeries         = require('promise-map-series')
 objectAssign      = require('object-assign')
