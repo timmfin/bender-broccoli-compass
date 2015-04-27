@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.coffe",
   "devDependencies": {
-    "coffee-script": "^1.9.0"
+    "coffee-script": "^1.9.2"
   },
   "dependencies": {
     "Set": "^0.4.1",
@@ -19,5 +19,12 @@
     "rimraf": "^2.2.8",
     "rsvp": "^3.0.16",
     "symlink-or-copy": "^1.0.1"
+  },
+  "scripts": {
+    "build": "./compile-coffeescript.sh",
+    "watch": "./watch-coffeescript.sh",
+    "clean": "./clean.sh",
+    "prepublish": "./compile-coffeescript.sh",
+    "postinstall": "./run-prepublish-if-not-already-run.sh"
   }
 }
