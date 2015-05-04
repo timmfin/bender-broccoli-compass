@@ -6,9 +6,12 @@
   "devDependencies": {
     "coffee-script": "^1.9.2"
   },
+  "//": {
+    "broccoli-caching-writer": "Needs a specific commit version that is not yet released (after 0.5.5)"
+  },
   "dependencies": {
     "Set": "^0.4.1",
-    "broccoli-caching-writer": "^0.5.5",
+    "broccoli-caching-writer": "ember-cli/broccoli-caching-writer#8b4b7a49b86208463b2f677439c1ea7167ef9773",
     "broccoli-kitchen-sink-helpers": "^0.2.6",
     "dargs": "^4.0.0",
     "fs-extra": "^0.16.3",

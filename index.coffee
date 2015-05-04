@@ -160,13 +160,13 @@ class BenderCompassCompiler extends CachingWriter
 
   # Override the broccoli-caching-writers's implementation of read so we can add
   # some per build cleanup (can go else where?)
-  read: (readTree) ->
+  rebuild: () ->
 
     # NEW ADDITION
     # Broccoli gaurentees that this method will only be called once per build
     @preBuildCleanup()
 
-    CachingWriter.prototype.read.call(this, readTree)
+    CachingWriter.prototype.rebuild.call(this)
 
   preBuildCleanup: ->
     @perBuildCache = {}
