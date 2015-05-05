@@ -16,6 +16,8 @@ symlinkOrCopySync = require('symlink-or-copy').sync
 
 
 class BenderCompassCompiler extends CachingWriter
+  description: "BenderCompassCompiler"
+
   defaultOptions:
     ignoreErrors: false,
     compassCommand: 'compass'
