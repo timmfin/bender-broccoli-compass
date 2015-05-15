@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "Set": "^0.4.1",
-    "broccoli-caching-writer": "timmfin/broccoli-caching-writer#fix-key-cache-check",
+    "broccoli-caching-writer": "ember-cli/broccoli-caching-writer#7e7f77914ca3dc664aea1f3a930f353a58813c72",
     "broccoli-kitchen-sink-helpers": "^0.2.6",
     "dargs": "^4.0.0",
     "fs-extra": "^0.16.3",
