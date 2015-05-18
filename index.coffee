@@ -77,6 +77,16 @@ class BenderCompassCompiler extends GroupedFilter
           else
             console.error(msg)
 
+  cleanup: ->
+    # Remove the extra dir
+    fse.removeSync(@extraDir)
+
+    # This shouldn't be necessary, but looks like there is a bug with broccoli-filters's
+    # pre 0.1.14 support
+    this.needsCleanup = true
+
+    super()
+
   generateCmdLine: (srcDir, destDir, filesToProcess) ->
     cmdArgs = [@options.compassCommand, 'compile']
 
@@ -104,7 +114,8 @@ class BenderCompassCompiler extends GroupedFilter
 
   _actualCompile: (cmdLine, options) ->
     new RSVP.Promise (resolve, reject) =>
-      console.log "compass command:\n", cmdLine, "(cwd = #{options.cwd})\n\n"
+      # console.log "compass command:\n", cmdLine, "(cwd = #{options.cwd})\n\n"
+
       exec cmdLine, options, (err, stdout, stderr) =>
         if not err
           resolve()
