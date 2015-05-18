@@ -58,7 +58,7 @@ class BenderCompassCompiler extends GroupedFilter
   processFilesInBatch: (srcDir, destDir, filesToProcess) ->
     # Put sass-cache and config file in a separate dir
     if not @extraDir
-      @extraDir = srcDir + '-compass-extra'
+      @extraDir = destDir + '-compass-extra'
       @compassConfigFile = @extraDir + '/config.rb'
       fse.ensureDirSync(@extraDir)
 
