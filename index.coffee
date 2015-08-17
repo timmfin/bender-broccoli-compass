@@ -12,6 +12,9 @@ objectAssign      = require('object-assign')
 GroupedFilter     = require('broccoli-grouped-filter');
 symlinkOrCopySync = require('symlink-or-copy').sync
 
+MultiResolver     = require('broccoli-dependencies/multi-resolver')
+SassDependenciesResolver = require('broccoli-sass-dependencies')
+
 { pick: pickKeysFrom, zipObject, compact, flatten } = require('lodash')
 
 
@@ -29,12 +32,13 @@ class BenderCompassCompiler extends GroupedFilter
     unless this instanceof BenderCompassCompiler
       return new BenderCompassCompiler arguments...
 
-    { @dependencyCache } = options
     @_lastKeys = []
 
     GroupedFilter.call(this, inputTree, options)
 
     @options = objectAssign {}, @defaultOptions, options
+    @multiResolver = new MultiResolver
+      resolvers: new SassDependenciesResolver
 
   canProcessFile: (relativePath) ->
     @hasDesiredExtension(relativePath) is true and @_matchesIncludePattern(relativePath) and @_notPartial(relativePath)
@@ -47,15 +51,29 @@ class BenderCompassCompiler extends GroupedFilter
 
   # SASS can produce more than one output file, but ignoring that for now (need
   # to have a way to say certain files produce more than one output?)
-  buildCacheInfoFor: (srcDir, relativePath) ->
+  buildCacheInfoFor: (srcDir, relativePath, destDir) ->
+
+    # Reusing existing sass dep work (that was mostly ripped out of bender-broccoli)
+    # to get all of a files `@import`ed deps. I'd rather use something like
+    # https://github.com/xzyfer/sass-graph but I couldn't get it to work.
+    # (Also, real support for listing deps in sass/libsass would be nice)
+    @multiResolver.findDependencies(relativePath, srcDir)
+
     cacheInfo =
-      inputFiles: @dependencyCache.dependencyListForFile relativePath, { formatValue: (v) -> v.sourceRelativePath }
+      inputFiles: @multiResolver.dependencyCache.dependencyListForFile relativePath, { formatValue: (v) -> v.sourceRelativePath }
       outputFiles: [relativePath.replace(/\.(sass|scss)$/, '.css')]
+
+    console.log "cacheInfo for #{relativePath}", cacheInfo
 
     cacheInfo
 
 
   processFilesInBatch: (srcDir, destDir, filesToProcess) ->
+    # Blow away cached dependencies
+    @multiResolver.prepareForAnotherBuild()
+
+    cacheInfosOfFilesToProcess = (@buildCacheInfoFor(srcDir, relativePath, destDir) for relativePath in filesToProcess)
+
     # Put sass-cache and config file in a separate dir
     if not @extraDir
       @extraDir = destDir + '-compass-extra'
@@ -76,6 +94,8 @@ class BenderCompassCompiler extends GroupedFilter
             throw err
           else
             console.error(msg)
+      .then =>
+        cacheInfosOfFilesToProcess
 
   cleanup: ->
     # Remove the extra dir

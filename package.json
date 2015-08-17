@@ -14,6 +14,8 @@
     "broccoli-caching-writer": "ember-cli/broccoli-caching-writer#7e7f77914ca3dc664aea1f3a930f353a58813c72",
     "broccoli-grouped-filter": "git://github.com/timmfin/broccoli-grouped-filter.git",
     "broccoli-kitchen-sink-helpers": "^0.2.6",
+    "broccoli-dependencies": "timmfin/broccoli-dependencies",
+    "broccoli-sass-dependencies": "timmfin/broccoli-sass-dependencies",
     "dargs": "^4.0.0",
     "fs-extra": "^0.16.3",
     "glob-expand": "timmfin/node-glob-expand",
