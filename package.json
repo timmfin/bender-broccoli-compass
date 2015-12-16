@@ -6,19 +6,15 @@
   "devDependencies": {
     "coffee-script": "^1.9.2"
   },
-  "//": {
-    "broccoli-caching-writer": "Needs a specific commit version that is not yet released (after 0.5.5)"
-  },
   "dependencies": {
-    "Set": "^0.4.1",
-    "broccoli-caching-writer": "ember-cli/broccoli-caching-writer#7e7f77914ca3dc664aea1f3a930f353a58813c72",
+    "broccoli-caching-writer": "~2.2.0",
     "broccoli-grouped-filter": "git://github.com/timmfin/broccoli-grouped-filter.git",
     "broccoli-kitchen-sink-helpers": "^0.2.6",
     "broccoli-dependencies": "timmfin/broccoli-dependencies",
     "broccoli-sass-dependencies": "timmfin/broccoli-sass-dependencies",
     "dargs": "^4.0.0",
     "fs-extra": "^0.16.3",
-    "glob-expand": "timmfin/node-glob-expand",
+    "glob-expand": "~0.1.0",
     "lodash": "^3.3.1",
     "object-assign": "^2.0.0",
     "promise-map-series": "^0.2.1",

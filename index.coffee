@@ -1,5 +1,4 @@
 fse               = require('fs-extra')
-Set               = require('Set')
 RSVP              = require('rsvp')
 path              = require('path')
 exec              = require('child_process').exec
